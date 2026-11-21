@@ -1,9 +1,10 @@
 import type { Metadata } from 'next';
+import { Fraunces, Nunito } from 'next/font/google';
 import type { ReactNode } from 'react';
 
+import { SalonShell } from '@/components/salon-shell';
+
 import { DevBanner } from '@/components/dev-banner';
-import { SiteFooter } from '@/components/site-footer';
-import { SiteHeader } from '@/components/site-header';
 import { siteUrl } from '@/lib/seo';
 import { site } from '@/lib/site';
 
@@ -24,15 +25,15 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // Fonts (design.md §1): `const heading = <Face>({ subsets: ['latin'], variable: '--font-heading' })` from
 // `next/font/google` (and `--font-body`), then both `.variable` classes in the <html> className below.
-const fonts = '';
+const heading = Fraunces({ subsets: ['latin'], variable: '--font-heading' });
+const body = Nunito({ subsets: ['latin'], variable: '--font-body' });
+const fonts = `${heading.variable} ${body.variable}`;
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html className={fonts} lang="en">
-      <body className="flex min-h-dvh flex-col bg-white font-sans text-zinc-900 antialiased">
-        <SiteHeader />
-        <div className="flex-1">{children}</div>
-        <SiteFooter />
+    <html className={fonts} lang="es">
+      <body className="flex min-h-dvh flex-col bg-sand-100 font-sans text-navy antialiased">
+        <div className="flex-1"><SalonShell>{children}</SalonShell></div>
         <DevBanner />
       </body>
     </html>

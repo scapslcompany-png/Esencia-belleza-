@@ -1,7 +1,7 @@
 // The app's name and header links, in one place: the header, the footer and every page title read them.
 export const site = {
-  name: 'New Totalum app',
-  description: 'Built with Totalum',
+  name: 'Esencia belleza',
+  description: 'Registro de colaboradoras y cobertura de turnos del salón Esencia belleza',
   /** The logo image's URL (the user's file): the header, the footer and the browser icon show it. Empty: the name alone. */
   logo: '',
   /**
