@@ -29,10 +29,3 @@ Son inventados y viven en `src/lib/salon/seed.ts`: 9 colaboradoras (una de vacac
 
 La clave está escrita en el código: sirve para uso interno, no como seguridad fuerte.
 
-## Cómo compartir la URL
-
-1. Publicá la app desde el botón **Publicar**.
-2. Copiá la dirección de la web publicada y enviála a partners@kodarvia.com (o a quien corresponda), junto con la clave.
-3. Cada persona elige su perfil al entrar (Operación, Revisor o Auditor).
-
-Los datos viven en cada navegador: para pasarlos a otro dispositivo, usá **Control** → descargar JSON y luego restaurar.
