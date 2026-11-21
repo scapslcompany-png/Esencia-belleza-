@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 
 import { SCHEMA_VERSION, SESSION_KEY, SNAPSHOT_KEY } from './config';
 import { ejecutar, type Resultado } from './engine';
+import { migrar } from './io';
 import { crearSemilla } from './seed';
 import type { Comando, Instantanea, Perfil } from './types';
 
@@ -21,7 +22,7 @@ export function leer(): Instantanea {
   let snap: Instantanea | null = null;
   try {
     const raw = localStorage.getItem(SNAPSHOT_KEY);
-    if (raw) { const p = JSON.parse(raw); if (valida(p)) snap = p; }
+    if (raw) { const p = JSON.parse(raw); if (valida(p)) snap = p; else { const m = migrar(p); if (m.ok) snap = m.snap; } }
   } catch { /* se siembra de nuevo */ }
   if (!snap) {
     snap = crearSemilla();
