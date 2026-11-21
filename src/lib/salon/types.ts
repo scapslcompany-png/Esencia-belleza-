@@ -59,10 +59,15 @@ export type Propuesta = {
   decisor: Perfil | null;
 };
 
+export type Servicio = 'Uñas' | 'Cabello';
+
+/** Una colaboradora ocupada en un servicio durante el turno de un día. */
+export type Ocupacion = { id: string; colaboradoraId: string; dia: Dia; turno: Turno; servicio: Servicio };
+
 export type Instantanea = {
   schemaVersion: number;
   revision: number;
-  entidades: { colaboradoras: Colaboradora[]; propuestas: Propuesta[] };
+  entidades: { colaboradoras: Colaboradora[]; propuestas: Propuesta[]; ocupaciones?: Ocupacion[] };
   eventos: Evento[];
   comandos: Comando[];
 };

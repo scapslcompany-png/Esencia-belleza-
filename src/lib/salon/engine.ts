@@ -1,5 +1,6 @@
 import { DIAS, ESPECIALIDADES, ESTADOS, TURNOS } from './config';
-import type { Colaboradora, Comando, Evento, Instantanea } from './types';
+import type { Colaboradora, Comando, Evento, Instantanea, Ocupacion, Servicio } from './types';
+import { hace } from './cobertura';
 
 export type Resultado =
   | { ok: true; snap: Instantanea; repetido: boolean; evento: Evento | null }
@@ -73,6 +74,8 @@ export function ejecutar(snap: Instantanea, cmd: Comando): Resultado {
   let nuevo: Colaboradora | null = null;
   let efecto = '';
   let nuevaLista: Colaboradora[];
+  const ocupaciones = snap.entidades.ocupaciones ?? [];
+  let nuevasOcupaciones = ocupaciones;
 
   if (cmd.tipo === 'crear') {
     if (actual) return fallo(`Ya existe una colaboradora con el id ${cmd.entidad}.`);
@@ -91,7 +94,30 @@ export function ejecutar(snap: Instantanea, cmd: Comando): Resultado {
   } else if (cmd.tipo === 'eliminar') {
     if (!actual) return fallo('Esa colaboradora ya no existe.');
     nuevaLista = lista.filter((c) => c.id !== actual.id);
+    nuevasOcupaciones = ocupaciones.filter((o) => o.colaboradoraId !== actual.id);
     efecto = `Baja del registro de ${actual.nombre}`;
+  } else if (cmd.tipo === 'ocupar' || cmd.tipo === 'cancelar-ocupacion') {
+    if (!actual) return fallo('Esa colaboradora no existe.');
+    nuevo = actual;
+    nuevaLista = lista;
+    if (cmd.tipo === 'ocupar') {
+      const dia = cmd.datos.dia as Ocupacion['dia'];
+      const servicio = cmd.datos.servicio as Servicio;
+      if (!DIAS.includes(dia as never)) return fallo('Elegí un día.');
+      if (servicio !== 'Uñas' && servicio !== 'Cabello') return fallo('Elegí un servicio.');
+      if (actual.estado !== 'Activa') return fallo(`${actual.nombre} está de ${actual.estado.toLowerCase()}: no se la puede ocupar.`);
+      if (!hace(actual, servicio)) return fallo(`${actual.nombre} es de ${actual.especialidad}: no hace ${servicio.toLowerCase()}.`);
+      if (actual.diaDescanso === dia) return fallo(`${actual.nombre} descansa el ${dia.toLowerCase()}.`);
+      const choque = ocupaciones.find((o) => o.colaboradoraId === actual.id && o.dia === dia && o.turno === actual.turno);
+      if (choque) return fallo(`${actual.nombre} ya está ocupada en ${choque.servicio.toLowerCase()} ese ${dia.toLowerCase()} (${actual.turno.toLowerCase()}).`);
+      nuevasOcupaciones = [...ocupaciones, { id: `ocu-${cmd.id}`, colaboradoraId: actual.id, dia, turno: actual.turno, servicio }];
+      efecto = `${actual.nombre} ocupada en ${servicio.toLowerCase()}, ${dia.toLowerCase()} ${actual.turno.toLowerCase()}`;
+    } else {
+      const o = ocupaciones.find((x) => x.id === cmd.datos.ocupacionId && x.colaboradoraId === actual.id);
+      if (!o) return fallo('Esa ocupación no existe o ya se canceló.');
+      nuevasOcupaciones = ocupaciones.filter((x) => x.id !== o.id);
+      efecto = `Ocupación cancelada: ${actual.nombre} vuelve a estar libre en ${o.servicio.toLowerCase()}, ${o.dia.toLowerCase()} ${o.turno.toLowerCase()}`;
+    }
   } else {
     return fallo(`Comando ${cmd.tipo} todavía no disponible.`);
   }
@@ -103,7 +129,7 @@ export function ejecutar(snap: Instantanea, cmd: Comando): Resultado {
     entidad: cmd.entidad,
     fecha: cmd.instante,
     perfil: cmd.actor,
-    motivo: motivo || { crear: 'Alta', editar: 'Edición', eliminar: 'Eliminación' }[cmd.tipo] || cmd.tipo,
+    motivo: motivo || { crear: 'Alta', editar: 'Edición', eliminar: 'Eliminación', ocupar: 'Ocupación', 'cancelar-ocupacion': 'Cancelación de ocupación' }[cmd.tipo] || cmd.tipo,
     estadoAnterior: actual,
     estadoNuevo: nuevo,
     versionAnterior: vAnt,
@@ -117,7 +143,7 @@ export function ejecutar(snap: Instantanea, cmd: Comando): Resultado {
     snap: {
       ...snap,
       revision: snap.revision + 1,
-      entidades: { ...snap.entidades, colaboradoras: nuevaLista },
+      entidades: { ...snap.entidades, colaboradoras: nuevaLista, ocupaciones: nuevasOcupaciones },
       eventos: [...snap.eventos, evento],
       comandos: [...snap.comandos, cmd],
     },
