@@ -1,0 +1,23 @@
+@import 'tailwindcss';
+
+/* The project's design tokens (colours, radius): see _system-docs/design.md. */
+@theme {
+  --color-brand: oklch(0.27 0.07 255);
+  --color-accent: oklch(0.72 0.14 30);
+  --color-navy: #14284b;
+  --color-sand-50: #fdf9f1;
+  --color-sand-100: #f6eedd;
+  --color-coral-100: #fde3dc;
+  --color-coral-400: #f4846f;
+  --color-coral-600: #d4553f;
+}
+
+/*
+ * Fonts: load them in layout.tsx with next/font (`variable: '--font-body'` / `'--font-heading'`) and put both
+ * `.variable` classes on <html>; `font-sans` and `font-display` then use them. Keep this block `inline`: a font
+ * mapped in the plain @theme block is computed on :root, before the variable exists, and never shows.
+ */
+@theme inline {
+  --font-sans: var(--font-body, ui-sans-serif), system-ui, sans-serif;
+  --font-display: var(--font-heading, var(--font-body, ui-sans-serif)), system-ui, sans-serif;
+}
