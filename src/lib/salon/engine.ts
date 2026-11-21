@@ -1,10 +1,16 @@
 import { DIAS, ESPECIALIDADES, ESTADOS, TURNOS } from './config';
-import type { Colaboradora, Comando, Evento, Instantanea, Ocupacion, Servicio } from './types';
+import type { Colaboradora, Comando, Evento, Instantanea, Ocupacion, Perfil, Propuesta, Servicio, TipoComando } from './types';
 import { hace } from './cobertura';
 
 export type Resultado =
   | { ok: true; snap: Instantanea; repetido: boolean; evento: Evento | null }
   | { ok: false; errores: string[] };
+
+/** Qué perfil puede dar cada comando. Auditor solo mira: no figura en ninguno. */
+const QUIEN: Record<TipoComando, Perfil> = {
+  crear: 'Operación', editar: 'Operación', eliminar: 'Operación', ocupar: 'Operación', 'cancelar-ocupacion': 'Operación',
+  ajuste: 'Operación', 'decidir-propuesta': 'Operación', proponer: 'Revisor',
+};
 
 const fallo = (...errores: string[]): Resultado => ({ ok: false, errores });
 
@@ -66,7 +72,13 @@ export function ejecutar(snap: Instantanea, cmd: Comando): Resultado {
   if (cmd.revisionEsperada !== snap.revision) {
     return fallo(`Los datos cambiaron: esperabas la revisión ${cmd.revisionEsperada} y la actual es la ${snap.revision}. Recargá y probá de nuevo.`);
   }
-  if (cmd.actor !== 'Operación') return fallo(`El perfil ${cmd.actor} no puede modificar colaboradoras. Solo Operación.`);
+  const quien = QUIEN[cmd.tipo];
+  if (!quien) return fallo(`Comando ${cmd.tipo} desconocido.`);
+  if (cmd.actor !== quien) {
+    return fallo(cmd.actor === 'Auditor'
+      ? 'El perfil Auditor solo mira: no puede cambiar nada.'
+      : `El perfil ${cmd.actor} no puede hacer esto. Lo hace ${quien}.`);
+  }
 
   const lista = snap.entidades.colaboradoras;
   const actual = lista.find((c) => c.id === cmd.entidad) ?? null;
@@ -76,6 +88,11 @@ export function ejecutar(snap: Instantanea, cmd: Comando): Resultado {
   let nuevaLista: Colaboradora[];
   const ocupaciones = snap.entidades.ocupaciones ?? [];
   let nuevasOcupaciones = ocupaciones;
+  const propuestas = snap.entidades.propuestas ?? [];
+  let nuevasPropuestas = propuestas;
+  let evEntidad = cmd.entidad;
+  let evAntes: Colaboradora | null = actual;
+  let ajusteDe: string | undefined;
 
   if (cmd.tipo === 'crear') {
     if (actual) return fallo(`Ya existe una colaboradora con el id ${cmd.entidad}.`);
@@ -118,23 +135,83 @@ export function ejecutar(snap: Instantanea, cmd: Comando): Resultado {
       nuevasOcupaciones = ocupaciones.filter((x) => x.id !== o.id);
       efecto = `Ocupación cancelada: ${actual.nombre} vuelve a estar libre en ${o.servicio.toLowerCase()}, ${o.dia.toLowerCase()} ${o.turno.toLowerCase()}`;
     }
+  } else if (cmd.tipo === 'proponer') {
+    if (!actual) return fallo('Esa colaboradora no existe.');
+    if (!motivo) return fallo('Contá el motivo de la propuesta.');
+    const cambios = (cmd.datos.cambios ?? {}) as Partial<Colaboradora>;
+    if (!cambios || typeof cambios !== 'object' || Object.keys(cambios).length === 0) return fallo('La propuesta no cambia nada.');
+    const errores = validarColaboradora({ ...actual, ...cambios });
+    if (errores.length) return { ok: false, errores };
+    const prop: Propuesta = {
+      id: `prop-${cmd.id}`, entidad: actual.id, versionPartida: versionActual(snap, actual.id), cambios, motivo,
+      creador: cmd.actor, decision: 'pendiente', decisor: null,
+    };
+    nuevasPropuestas = [...propuestas, prop];
+    nuevaLista = lista;
+    nuevo = actual;
+    evEntidad = prop.id;
+    evAntes = null;
+    nuevo = null;
+    efecto = `Propuesta para ${actual.nombre}: ${motivo}`;
+  } else if (cmd.tipo === 'decidir-propuesta') {
+    const prop = propuestas.find((x) => x.id === cmd.entidad);
+    if (!prop) return fallo('Esa propuesta no existe.');
+    if (prop.decision !== 'pendiente') return fallo(`Esa propuesta ya está ${prop.decision}.`);
+    const decision = cmd.datos.decision;
+    if (decision !== 'aprobada' && decision !== 'rechazada') return fallo('Elegí aprobar o rechazar.');
+    if (decision === 'rechazada' && !motivo) return fallo('Contá por qué la rechazás.');
+    nuevaLista = lista;
+    nuevo = null;
+    evAntes = null;
+    if (decision === 'aprobada') {
+      const col = lista.find((c) => c.id === prop.entidad);
+      if (!col) return fallo('La colaboradora de esa propuesta ya no existe. Rechazala.');
+      if (versionActual(snap, col.id) !== prop.versionPartida) return fallo('La ficha cambió desde que se propuso: la propuesta quedó vieja. Rechazala y pedí una nueva.');
+      const errores = validarColaboradora({ ...col, ...prop.cambios });
+      if (errores.length) return { ok: false, errores };
+      nuevo = normalizar({ ...col, ...prop.cambios }, col.id);
+      nuevaLista = lista.map((c) => (c.id === col.id ? nuevo! : c));
+      evEntidad = col.id;
+      evAntes = col;
+      efecto = `Propuesta aprobada: cambios en ${nuevo.nombre} (${prop.motivo})`;
+    } else {
+      efecto = `Propuesta rechazada: ${motivo}`;
+    }
+    nuevasPropuestas = propuestas.map((x) => (x.id === prop.id ? { ...x, decision, decisor: cmd.actor } : x));
+  } else if (cmd.tipo === 'ajuste') {
+    const origen = snap.eventos.find((e) => e.id === cmd.datos.eventoId);
+    if (!origen) return fallo('Ese evento del historial no existe.');
+    if (!motivo) return fallo('Un ajuste necesita su motivo.');
+    const col = lista.find((c) => c.id === origen.entidad);
+    if (!col) return fallo('La colaboradora de ese evento ya no existe.');
+    const cambios = (cmd.datos.cambios ?? {}) as Partial<Colaboradora>;
+    if (!cambios || typeof cambios !== 'object' || Object.keys(cambios).length === 0) return fallo('El ajuste no cambia nada.');
+    const errores = validarColaboradora({ ...col, ...cambios });
+    if (errores.length) return { ok: false, errores };
+    nuevo = normalizar({ ...col, ...cambios }, col.id);
+    nuevaLista = lista.map((c) => (c.id === col.id ? nuevo! : c));
+    evEntidad = col.id;
+    evAntes = col;
+    ajusteDe = origen.id;
+    efecto = `Ajuste sobre «${origen.efecto}»: ${motivo}`;
   } else {
-    return fallo(`Comando ${cmd.tipo} todavía no disponible.`);
+    return fallo(`Comando ${cmd.tipo} desconocido.`);
   }
 
-  const vAnt = versionActual(snap, cmd.entidad);
+  const vAnt = versionActual(snap, evEntidad);
   const evento: Evento = {
     id: `evt-${cmd.id}`,
     comandoId: cmd.id,
-    entidad: cmd.entidad,
+    entidad: evEntidad,
     fecha: cmd.instante,
     perfil: cmd.actor,
-    motivo: motivo || { crear: 'Alta', editar: 'Edición', eliminar: 'Eliminación', ocupar: 'Ocupación', 'cancelar-ocupacion': 'Cancelación de ocupación' }[cmd.tipo] || cmd.tipo,
-    estadoAnterior: actual,
+    motivo: motivo || { crear: 'Alta', editar: 'Edición', eliminar: 'Eliminación', ocupar: 'Ocupación', 'cancelar-ocupacion': 'Cancelación de ocupación', proponer: 'Propuesta', 'decidir-propuesta': 'Decisión de propuesta', ajuste: 'Ajuste' }[cmd.tipo] || cmd.tipo,
+    estadoAnterior: evAntes,
     estadoNuevo: nuevo,
     versionAnterior: vAnt,
     versionNueva: vAnt + 1,
     efecto,
+    ...(ajusteDe ? { ajusteDe } : {}),
   };
   return {
     ok: true,
@@ -143,7 +220,7 @@ export function ejecutar(snap: Instantanea, cmd: Comando): Resultado {
     snap: {
       ...snap,
       revision: snap.revision + 1,
-      entidades: { ...snap.entidades, colaboradoras: nuevaLista, ocupaciones: nuevasOcupaciones },
+      entidades: { ...snap.entidades, colaboradoras: nuevaLista, ocupaciones: nuevasOcupaciones, propuestas: nuevasPropuestas },
       eventos: [...snap.eventos, evento],
       comandos: [...snap.comandos, cmd],
     },

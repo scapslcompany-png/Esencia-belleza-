@@ -19,7 +19,7 @@ export type Colaboradora = {
   comision: number;
 };
 
-export type TipoComando = 'crear' | 'editar' | 'eliminar' | 'ocupar' | 'cancelar-ocupacion' | 'ajuste' | 'decidir-propuesta';
+export type TipoComando = 'crear' | 'editar' | 'eliminar' | 'ocupar' | 'cancelar-ocupacion' | 'ajuste' | 'decidir-propuesta' | 'proponer';
 
 export type Comando = {
   id: string;
