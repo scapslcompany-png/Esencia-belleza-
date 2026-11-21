@@ -10,6 +10,17 @@ Todo se guarda en el navegador de cada dispositivo; no hay cuentas ni base de da
 - **Historial**: propuestas y cambios.
 - **Control**: descargas CSV/JSON y restaurar una copia.
 
+## Cómo correrlo
+
+1. Instalá lo necesario con `npm install`.
+2. Arrancá con `npm run dev` y abrí http://localhost:3100.
+3. Entrá con la clave y elegí un perfil (Operación, Revisor o Auditor).
+4. Para comprobar las reglas del salón sin abrir la app: `npx tsx scripts/verificar-salon.ts` (debe terminar con «Todo bien»).
+
+## Cómo se preparan los datos de ejemplo
+
+Son inventados y viven en `src/lib/salon/seed.ts`: 9 colaboradoras (una de vacaciones) que se cargan solas la primera vez que se abre la app en un navegador. Para volver a empezar, borrá los datos del sitio en el navegador (o restaurá una copia desde **Control**) y recargá. Para cambiar los ejemplos, editá la lista `colaboradorasEjemplo` de ese archivo.
+
 ## Cómo cambiar la clave
 
 1. Abrí `src/lib/salon/config.ts`.
