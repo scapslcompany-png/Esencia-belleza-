@@ -1,7 +1,7 @@
 'use client';
 import { useRef, useState, type FormEvent } from 'react';
 
-import { DIAS, ESPECIALIDADES, ESTADOS, TURNOS, TURNO_HORARIO } from '@/lib/salon/config';
+import { DIAS, ESPECIALIDADES, ESTADOS, SERVICIOS, TURNOS, TURNO_HORARIO } from '@/lib/salon/config';
 import { ejecutarComando, useInstantanea, usePerfil } from '@/lib/salon/store';
 import type { Colaboradora, Comando } from '@/lib/salon/types';
 
@@ -161,6 +161,20 @@ export default function Colaboradoras() {
           ))}
         </ul>
       )}
+      <div className="mt-6 rounded-xl border-2 border-navy/15 bg-white/80 p-4 text-navy">
+        <h2 className="font-display text-xl">Servicios del salón</h2>
+        <p className="mb-3 text-sm text-navy/70">Precios en pesos mexicanos, solo de referencia.</p>
+        {(['Uñas', 'Cabello'] as const).filter((g) => filtro === 'Todas' || filtro === g).map((g) => (
+          <div key={g} className="mb-2">
+            <h3 className="font-semibold">{g}</h3>
+            <ul className="text-sm">
+              {SERVICIOS[g].map((s) => (
+                <li key={s.nombre} className="flex justify-between gap-3 border-b border-navy/10 py-1"><span>{s.nombre}</span>{s.precio && <span className="shrink-0 font-semibold">{s.precio}</span>}</li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
