@@ -1,4 +1,4 @@
-import { DIAS, ESPECIALIDADES, ESTADOS, TURNOS } from './config';
+import { DIAS, ESPECIALIDADES, ESTADOS, TURNOS, serviciosPermitidos } from './config';
 import type { Colaboradora, Comando, Evento, Instantanea, Ocupacion, Perfil, Propuesta, Servicio, TipoComando } from './types';
 import { hace } from './cobertura';
 
@@ -36,6 +36,14 @@ export function validarColaboradora(c: Partial<Colaboradora>): string[] {
   if (!ESTADOS.includes(c.estado as never)) e.push('Elegí un estado.');
   else if (c.estado !== 'Activa' && !esFecha(c.fechaRegreso)) e.push('La fecha de regreso es obligatoria en Vacaciones o Baja.');
   if (typeof c.comision !== 'number' || !Number.isFinite(c.comision) || c.comision < 0 || c.comision > 100) e.push('La comisión tiene que ser un número entre 0 y 100.');
+  if (c.servicios !== undefined) {
+    const ok = serviciosPermitidos(String(c.especialidad));
+    if (!Array.isArray(c.servicios)) e.push('Los servicios no son válidos.');
+    else {
+      const fuera = c.servicios.filter((s) => !ok.includes(s));
+      if (fuera.length) e.push(`Con la especialidad ${c.especialidad} no se puede asignar: ${fuera.join(', ')}.`);
+    }
+  }
   return e;
 }
 
@@ -50,6 +58,7 @@ function normalizar(d: Record<string, unknown>, id: string): Colaboradora {
     estado,
     fechaRegreso: estado === 'Activa' ? null : (d.fechaRegreso as string),
     comision: d.comision as number,
+    ...(Array.isArray(d.servicios) ? { servicios: d.servicios as string[] } : {}),
   };
 }
 
@@ -97,6 +106,7 @@ export function ejecutar(snap: Instantanea, cmd: Comando): Resultado {
   if (cmd.tipo === 'crear') {
     if (actual) return fallo(`Ya existe una colaboradora con el id ${cmd.entidad}.`);
     const errores = validarColaboradora(cmd.datos as Partial<Colaboradora>);
+    if (!Array.isArray(cmd.datos.servicios) || cmd.datos.servicios.length === 0) errores.push('Elegí al menos un servicio del catálogo.');
     if (errores.length) return { ok: false, errores };
     nuevo = normalizar(cmd.datos, cmd.entidad);
     nuevaLista = [...lista, nuevo];

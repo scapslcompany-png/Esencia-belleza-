@@ -1,4 +1,4 @@
-import { SCHEMA_VERSION } from './config';
+import { NOMBRES_SERVICIO, SCHEMA_VERSION } from './config';
 import type { Colaboradora, Comando, Evento, Instantanea } from './types';
 
 function enDias(n: number): string {
@@ -8,7 +8,7 @@ function enDias(n: number): string {
 }
 
 function colaboradorasEjemplo(): Colaboradora[] {
-  return [
+  const base: Colaboradora[] = [
     { id: 'col-001', nombre: 'Marina', especialidad: 'Uñas', turno: 'Mañana', diaDescanso: 'Lunes', estado: 'Activa', fechaRegreso: null, comision: 40 },
     { id: 'col-002', nombre: 'Valeria', especialidad: 'Uñas', turno: 'Mañana', diaDescanso: 'Martes', estado: 'Activa', fechaRegreso: null, comision: 40 },
     { id: 'col-003', nombre: 'Daniela', especialidad: 'Uñas', turno: 'Mañana', diaDescanso: 'Miércoles', estado: 'Activa', fechaRegreso: null, comision: 40 },
@@ -19,6 +19,8 @@ function colaboradorasEjemplo(): Colaboradora[] {
     { id: 'col-008', nombre: 'Fede', especialidad: 'Cabello', turno: 'Tarde', diaDescanso: 'Lunes', estado: 'Activa', fechaRegreso: null, comision: 38 },
     { id: 'col-009', nombre: 'Lucía', especialidad: 'Uñas', turno: 'Tarde', diaDescanso: 'Jueves', estado: 'Vacaciones', fechaRegreso: enDias(7), comision: 40 },
   ];
+  const por = { Uñas: NOMBRES_SERVICIO.Uñas.slice(0, 5), Cabello: NOMBRES_SERVICIO.Cabello, Ambas: [...NOMBRES_SERVICIO.Uñas.slice(0, 3), ...NOMBRES_SERVICIO.Cabello] };
+  return base.map((c) => ({ ...c, servicios: por[c.especialidad] }));
 }
 
 export function crearSemilla(): Instantanea {

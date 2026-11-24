@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react';
 
 import { colaboradorasCsv, descargar, historialCsv, migrar } from '@/lib/salon/io';
+import { crearSemilla } from '@/lib/salon/seed';
 import { guardar, useInstantanea, usePerfil } from '@/lib/salon/store';
 import type { Instantanea } from '@/lib/salon/types';
 
@@ -28,6 +29,17 @@ export default function Pantalla() {
     const r = migrar(datos);
     if (!r.ok) { setAviso({ ok: false, texto: r.error }); return; }
     setPendiente({ snap: r.snap, migrada: r.migrada, nombre: file.name });
+  }
+
+  const [confirmarPrueba, setConfirmarPrueba] = useState(false);
+  function restaurarPrueba() {
+    try {
+      guardar(crearSemilla());
+      setAviso({ ok: true, texto: 'Listo, volvieron los datos de prueba.' });
+    } catch {
+      setAviso({ ok: false, texto: 'No se pudo guardar. Tus datos siguen como estaban.' });
+    }
+    setConfirmarPrueba(false);
   }
 
   function restaurar() {
@@ -66,6 +78,19 @@ export default function Pantalla() {
         ) : (
           <>
             <p className="mt-1 text-sm text-navy/70">Elegí una copia JSON descargada antes. Reemplaza todos los datos actuales; si es de la versión 1, la actualizo sola.</p>
+            <div className="mt-3">
+              {!confirmarPrueba ? (
+                <button className={botonS} onClick={() => setConfirmarPrueba(true)}>Restaurar datos de prueba</button>
+              ) : (
+                <div role="alertdialog" aria-label="Confirmar datos de prueba" className="rounded-lg bg-sand-50 p-3 text-sm text-navy">
+                  <p className="font-semibold">¿Reemplazar todo por los datos de prueba? Lo actual se pierde.</p>
+                  <div className="mt-2 flex gap-2">
+                    <button className={boton} onClick={restaurarPrueba}>Sí, restaurar</button>
+                    <button className={botonS} onClick={() => setConfirmarPrueba(false)}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+            </div>
             <label className="mt-3 block text-sm font-semibold text-navy">Archivo de copia
               <input ref={input} type="file" accept="application/json,.json" onChange={(e) => elegir(e.target.files?.[0])}
                 className="mt-1 block w-full rounded-lg border-2 border-navy/30 bg-white px-3 py-2 text-navy" />
