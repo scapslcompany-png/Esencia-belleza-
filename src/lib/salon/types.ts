@@ -17,6 +17,8 @@ export type Colaboradora = {
   fechaRegreso: string | null;
   /** Porcentaje de comisión. */
   comision: number;
+  /** Servicios del catálogo que hace; ausente en copias antiguas. */
+  servicios?: string[];
 };
 
 export type TipoComando = 'crear' | 'editar' | 'eliminar' | 'ocupar' | 'cancelar-ocupacion' | 'ajuste' | 'decidir-propuesta' | 'proponer';

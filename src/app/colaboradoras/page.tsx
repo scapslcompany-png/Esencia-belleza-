@@ -1,7 +1,8 @@
 'use client';
 import { useRef, useState, type FormEvent } from 'react';
 
-import { DIAS, ESPECIALIDADES, ESTADOS, SERVICIOS, TURNOS, TURNO_HORARIO } from '@/lib/salon/config';
+import { DIAS, ESPECIALIDADES, ESTADOS, SERVICIOS, TURNOS, TURNO_HORARIO, serviciosPermitidos } from '@/lib/salon/config';
+import { colaboradorasCsv, descargar, haceServicio } from '@/lib/salon/io';
 import { ejecutarComando, useInstantanea, usePerfil } from '@/lib/salon/store';
 import type { Colaboradora, Comando } from '@/lib/salon/types';
 
@@ -13,8 +14,8 @@ const nuevoId = () => {
   return Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 };
 
-type Borrador = { nombre: string; especialidad: string; turno: string; diaDescanso: string; estado: string; fechaRegreso: string; comision: string };
-const VACIO: Borrador = { nombre: '', especialidad: 'Uñas', turno: 'Mañana', diaDescanso: 'Lunes', estado: 'Activa', fechaRegreso: '', comision: '40' };
+type Borrador = { nombre: string; especialidad: string; turno: string; diaDescanso: string; estado: string; fechaRegreso: string; comision: string; servicios: string[] };
+const VACIO: Borrador = { nombre: '', especialidad: 'Uñas', turno: 'Mañana', diaDescanso: 'Lunes', estado: 'Activa', fechaRegreso: '', comision: '40', servicios: [] };
 
 const campo = 'w-full rounded-lg border-2 border-navy/25 bg-white px-3 py-2 text-navy focus:border-navy focus:outline-none';
 const botonP = 'rounded-lg bg-navy px-4 py-2 font-semibold text-sand-50 hover:bg-navy/90 focus:outline-none focus-visible:ring-4 focus-visible:ring-coral-400';
@@ -22,11 +23,17 @@ const botonS = 'rounded-lg border-2 border-navy/30 bg-white px-3 py-1.5 text-sm 
 
 function Formulario({ editar, revision, onCerrar }: { editar: Colaboradora | null; revision: number; onCerrar: (msg: string) => void }) {
   const perfil = usePerfil();
-  const [d, setD] = useState<Borrador>(editar ? { ...editar, fechaRegreso: editar.fechaRegreso ?? '', comision: String(editar.comision) } : VACIO);
+  const [d, setD] = useState<Borrador>(editar ? { ...editar, fechaRegreso: editar.fechaRegreso ?? '', comision: String(editar.comision), servicios: editar.servicios ?? [] } : VACIO);
   const [errores, setErrores] = useState<string[]>([]);
   // El id del comando y el de la colaboradora se crean una vez: un reintento usa los mismos.
   const ids = useRef({ comando: nuevoId(), entidad: editar?.id ?? `col-${nuevoId().slice(0, 8)}` });
   const set = (k: keyof Borrador) => (e: { target: { value: string } }) => setD((x) => ({ ...x, [k]: e.target.value }));
+  const permitidos = serviciosPermitidos(d.especialidad);
+  const cambiarEspecialidad = (e: { target: { value: string } }) => {
+    const ok = serviciosPermitidos(e.target.value);
+    setD((x) => ({ ...x, especialidad: e.target.value, servicios: x.servicios.filter((s) => ok.includes(s)) }));
+  };
+  const alternar = (s: string) => setD((x) => ({ ...x, servicios: x.servicios.includes(s) ? x.servicios.filter((y) => y !== s) : [...x.servicios, s] }));
   const conRegreso = d.estado !== 'Activa';
 
   function enviar(e: FormEvent) {
@@ -40,7 +47,7 @@ function Formulario({ editar, revision, onCerrar }: { editar: Colaboradora | nul
       revisionEsperada: revision,
       datos: {
         nombre: d.nombre, especialidad: d.especialidad, turno: d.turno, diaDescanso: d.diaDescanso, estado: d.estado,
-        fechaRegreso: conRegreso ? d.fechaRegreso || null : null, comision: d.comision.trim() === '' ? null : Number(d.comision),
+        fechaRegreso: conRegreso ? d.fechaRegreso || null : null, comision: d.comision.trim() === '' ? null : Number(d.comision), servicios: d.servicios,
       },
     };
     const r = ejecutarComando(cmd);
@@ -59,7 +66,7 @@ function Formulario({ editar, revision, onCerrar }: { editar: Colaboradora | nul
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm font-semibold text-navy">Nombre<input className={campo} value={d.nombre} onChange={set('nombre')} /></label>
         <label className="block text-sm font-semibold text-navy">Especialidad
-          <select className={campo} value={d.especialidad} onChange={set('especialidad')}>{ESPECIALIDADES.map((x) => <option key={x}>{x}</option>)}</select></label>
+          <select className={campo} value={d.especialidad} onChange={cambiarEspecialidad}>{ESPECIALIDADES.map((x) => <option key={x}>{x}</option>)}</select></label>
         <label className="block text-sm font-semibold text-navy">Turno
           <select className={campo} value={d.turno} onChange={set('turno')}>{TURNOS.map((x) => <option key={x} value={x}>{x} {TURNO_HORARIO[x]}</option>)}</select></label>
         <label className="block text-sm font-semibold text-navy">Día de descanso
@@ -71,6 +78,14 @@ function Formulario({ editar, revision, onCerrar }: { editar: Colaboradora | nul
         <label className="block text-sm font-semibold text-navy">Comisión (%)
           <input type="number" min={0} max={100} step="any" className={campo} value={d.comision} onChange={set('comision')} /></label>
       </div>
+      <fieldset className="text-sm text-navy">
+        <legend className="font-semibold">Servicios que hace (al menos uno)</legend>
+        <div className="mt-1 grid gap-1 sm:grid-cols-2">
+          {permitidos.map((s) => (
+            <label key={s} className="flex items-center gap-2"><input type="checkbox" checked={d.servicios.includes(s)} onChange={() => alternar(s)} />{s}</label>
+          ))}
+        </div>
+      </fieldset>
       <div className="flex gap-2">
         <button type="submit" className={botonP}>Guardar</button>
         <button type="button" onClick={() => onCerrar('')} className={botonS}>Cancelar</button>
@@ -90,7 +105,7 @@ export default function Colaboradoras() {
   const idBorrado = useRef('');
   if (!snap) return null;
   const todas = snap.entidades.colaboradoras;
-  const lista = todas.filter((c) => filtro === 'Todas' || c.especialidad === filtro || c.especialidad === 'Ambas');
+  const lista = todas.filter((c) => filtro === 'Todas' || haceServicio(c, filtro));
   const puede = perfil === 'Operación';
 
   function pedirBorrar(c: Colaboradora) { idBorrado.current = nuevoId(); setErrBorrar([]); setBorrar(c); setAviso(''); }
@@ -122,6 +137,7 @@ export default function Colaboradoras() {
           <button key={f} aria-pressed={filtro === f} onClick={() => setFiltro(f)}
             className={`rounded-full border-2 px-4 py-1.5 text-sm font-semibold focus:outline-none focus-visible:ring-4 focus-visible:ring-coral-400 ${filtro === f ? 'border-navy bg-navy text-sand-50' : 'border-navy/30 bg-white text-navy'}`}>{f}</button>
         ))}
+        <button className={`${botonS} ml-auto`} onClick={() => snap && descargar(`colaboradoras-${filtro.toLowerCase()}.csv`, colaboradorasCsv(snap, filtro), 'text/csv;charset=utf-8')}>Exportar CSV ({lista.length})</button>
       </div>
 
       {form && <Formulario key={form.clave} editar={form.editar} revision={snap.revision} onCerrar={(m) => { setForm(null); setAviso(m); }} />}
@@ -148,6 +164,7 @@ export default function Colaboradoras() {
                 <div className="text-navy">
                   <p className="font-semibold">{c.nombre} <span className="font-normal text-navy/60">· {c.especialidad}</span></p>
                   <p className="text-sm">{c.turno} {TURNO_HORARIO[c.turno]} · descansa {c.diaDescanso.toLowerCase()} · {c.comision} %</p>
+                  <p className="text-sm">{c.servicios?.length ? c.servicios.join(' · ') : 'Sin servicios asignados'}</p>
                   <p className="text-sm">{c.estado}{c.fechaRegreso ? ` · vuelve el ${c.fechaRegreso}` : ''}</p>
                 </div>
               </div>

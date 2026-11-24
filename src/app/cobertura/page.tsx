@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react';
 
 import { grilla } from '@/lib/salon/cobertura';
-import { DIAS, TURNO_HORARIO, TURNOS } from '@/lib/salon/config';
+import { DIAS, ESTADOS, TURNO_HORARIO, TURNOS } from '@/lib/salon/config';
 import { ejecutarComando, useInstantanea, usePerfil } from '@/lib/salon/store';
 import type { Comando, Dia, Servicio } from '@/lib/salon/types';
 
@@ -39,6 +39,15 @@ export default function Pantalla() {
     <section>
       <h1 className="font-display text-3xl text-navy">Cobertura</h1>
       <p className="mt-1 text-navy/70">Activas por turno, sin contar a quien descansa ese día. Se actualiza sola.</p>
+
+      <dl className="mt-4 grid grid-cols-3 gap-2 text-center text-navy" aria-label="Totales por estado">
+        {ESTADOS.map((e) => (
+          <div key={e} className="rounded-xl border-2 border-navy/20 bg-white p-2">
+            <dd className="font-display text-2xl">{cs.filter((c) => c.estado === e).length}</dd>
+            <dt className="text-xs font-semibold sm:text-sm">{{ Activa: 'Activas', Vacaciones: 'De vacaciones', Baja: 'De baja' }[e]}</dt>
+          </div>
+        ))}
+      </dl>
 
       {cs.length === 0 ? (
         <p className="mt-4 rounded-xl border-2 border-navy/20 bg-white p-4 font-semibold text-navy">Sin datos: todavía no cargaste colaboradoras.</p>

@@ -1,5 +1,5 @@
-import { ESPECIALIDADES, ESTADOS, SCHEMA_VERSION, TURNOS, DIAS } from './config';
-import type { Instantanea } from './types';
+import { NOMBRES_SERVICIO, ESPECIALIDADES, ESTADOS, SCHEMA_VERSION, TURNOS, DIAS } from './config';
+import type { Colaboradora, Instantanea } from './types';
 
 const esObj = (x: unknown): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x);
 
@@ -44,9 +44,17 @@ export function aCsv(cabecera: string[], filas: unknown[][]): string {
   return '﻿' + [cabecera, ...filas].map((f) => f.map(celda).join(',')).join('\r\n') + '\r\n';
 }
 
-export function colaboradorasCsv(s: Instantanea): string {
-  return aCsv(['id', 'nombre', 'especialidad', 'turno', 'dia_descanso', 'estado', 'fecha_regreso', 'comision_pct'],
-    s.entidades.colaboradoras.map((c) => [c.id, c.nombre, c.especialidad, c.turno, c.diaDescanso, c.estado, c.fechaRegreso, c.comision]));
+/** ¿Hace algún servicio del grupo? Con servicios asignados cuenta lo asignado; sin ellos (copias antiguas), la especialidad. */
+export function haceServicio(c: Colaboradora, grupo: 'Uñas' | 'Cabello'): boolean {
+  if (c.servicios && c.servicios.length > 0) return c.servicios.some((x) => NOMBRES_SERVICIO[grupo].includes(x));
+  return c.especialidad === grupo || c.especialidad === 'Ambas';
+}
+
+/** Exporta las colaboradoras; `grupo` es el filtro activo en pantalla. */
+export function colaboradorasCsv(s: Instantanea, grupo: 'Todas' | 'Uñas' | 'Cabello' = 'Todas'): string {
+  const lista = s.entidades.colaboradoras.filter((c) => grupo === 'Todas' || haceServicio(c, grupo));
+  return aCsv(['id', 'nombre', 'especialidad', 'servicios', 'turno', 'dia_descanso', 'estado', 'fecha_regreso', 'comision_pct'],
+    lista.map((c) => [c.id, c.nombre, c.especialidad, (c.servicios ?? []).join('; '), c.turno, c.diaDescanso, c.estado, c.fechaRegreso, c.comision]));
 }
 
 export function historialCsv(s: Instantanea): string {

@@ -31,3 +31,11 @@ export const SERVICIOS = {
     { nombre: 'Alaciado permanente', precio: '' },
   ],
 } as const;
+
+export const NOMBRES_SERVICIO = { Uñas: SERVICIOS.Uñas.map((s) => s.nombre), Cabello: SERVICIOS.Cabello.map((s) => s.nombre) } as Record<'Uñas' | 'Cabello', string[]>;
+
+/** Servicios del catálogo que puede hacer una especialidad. */
+export function serviciosPermitidos(esp: string): string[] {
+  if (esp === 'Ambas') return [...NOMBRES_SERVICIO.Uñas, ...NOMBRES_SERVICIO.Cabello];
+  return esp === 'Uñas' || esp === 'Cabello' ? NOMBRES_SERVICIO[esp] : [];
+}
