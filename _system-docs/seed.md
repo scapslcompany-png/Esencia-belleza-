@@ -61,7 +61,7 @@ console.log('seeded');
   them. Keep the real sign-up working for the user.
 - Make it look alive for a brand-new user: public items they see signed out or right after sign-up, relations
   filled in (likes, comments, followers, a few chat threads between sample people), timestamps from minutes to days
-  ago, short natural copy in the user's language — never lorem ipsum or "Test post 1".
+  ago, short natural copy in the user's language — never generic placeholder text or "Test post 1".
 
 ## Starting content: a migration, inserted once
 

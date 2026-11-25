@@ -136,8 +136,8 @@ URL. Tell the user the photos are stock.
 
 ## 6. Content
 
-Real copy in the language the owner writes in, specific to the business: names, prices, hours, addresses. Never lorem ipsum,
-"Feature 1" or `#` links; every link goes to a real route or anchor.
+Real copy in the language the owner writes in, specific to the business: names, prices, hours, addresses. Never generic placeholder
+text, "Feature 1" or `#` links; every link goes to a real route or anchor.
 
 ## 7. Before you return: review it as the client’s art director
 
